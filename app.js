@@ -61,7 +61,12 @@
         out.push(value.trim());return out;
       };
 
-      const headers=parseLine(lines[0]).map(x=>x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""));
+      const headerIndex=lines.findIndex(line=>{
+  const h=parseLine(line).map(x=>x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim());
+  return h.includes("concepto")&&h.includes("fecha")&&h.includes("importe");
+});
+if(headerIndex<0)throw new Error("No encuentro las columnas Concepto, Fecha e Importe.");
+const headers=parseLine(lines[headerIndex]).map(x=>x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim());
       const findHeader=words=>headers.findIndex(h=>words.some(w=>h.includes(w)));
       const dateCol=findHeader(["fecha","date"]);
       const nameCol=findHeader(["concepto","descripcion","description","concept","detalle","comercio"]);
