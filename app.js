@@ -82,7 +82,7 @@ const headers=parseLine(lines[headerIndex]).map(x=>x.toLowerCase().normalize("NF
         return "";
       };
       const amountValue=s=>{
-        s=s.replace(/[€\s]/g,"").replace(/[()]/g,"");
+        s=s.replace(/EUR/gi,"").replace(/[€\s]/g,"").replace(/[()]/g,"");
         if(s.includes(",")&&s.includes(".")){
           s=s.lastIndexOf(",")>s.lastIndexOf(".")?s.replace(/\./g,"").replace(",","."):s.replace(/,/g,"");
         }else if(s.includes(","))s=s.replace(",",".");
