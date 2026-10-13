@@ -37,5 +37,85 @@
   document.getElementById("resetBtn").onclick=()=>{if(confirm("¿Seguro que quieres borrar todos los datos guardados en este navegador? Esta acción no se puede deshacer.")){state=defaultState();save();toast("Datos borrados")}};
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;document.getElementById("installBtn").hidden=false});document.getElementById("installBtn").onclick=async()=>{if(!deferredPrompt){toast("Abre el menú del navegador y elige «Añadir a pantalla de inicio».");return}deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;document.getElementById("installBtn").hidden=true};
   if("serviceWorker" in navigator && location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
+
+  document.getElementById("importBtn").onclick=()=>document.getElementById("csvFile").click();
+
+  document.getElementById("csvFile").onchange=async e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    try{
+      const text=await file.text();
+      const lines=text.replace(/^\uFEFF/,"").split(/\r?\n/).filter(x=>x.trim());
+      if(lines.length<2)throw new Error("El archivo no contiene movimientos.");
+
+      const sep=(lines[0].match(/;/g)||[]).length>(lines[0].match(/,/g)||[]).length?";":",";
+      const parseLine=line=>{
+        const out=[];let value="",quoted=false;
+        for(let i=0;i<line.length;i++){
+          const c=line[i];
+          if(c==='"'&&line[i+1]==='"'&&quoted){value+='"';i++}
+          else if(c==='"')quoted=!quoted;
+          else if(c===sep&&!quoted){out.push(value.trim());value=""}
+          else value+=c;
+        }
+        out.push(value.trim());return out;
+      };
+
+      const headers=parseLine(lines[0]).map(x=>x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""));
+      const findHeader=words=>headers.findIndex(h=>words.some(w=>h.includes(w)));
+      const dateCol=findHeader(["fecha","date"]);
+      const nameCol=findHeader(["concepto","descripcion","description","concept","detalle","comercio"]);
+      const amountCol=findHeader(["importe","cantidad","amount","monto"]);
+      if(dateCol<0||nameCol<0||amountCol<0)
+        throw new Error("No reconozco las columnas. Necesito fecha, concepto e importe.");
+
+      const dateValue=s=>{
+        s=s.trim();
+        let m=s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+        if(m)return `${m[3].length===2?"20"+m[3]:m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+        if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+        return "";
+      };
+      const amountValue=s=>{
+        s=s.replace(/[€\s]/g,"").replace(/[()]/g,"");
+        if(s.includes(",")&&s.includes(".")){
+          s=s.lastIndexOf(",")>s.lastIndexOf(".")?s.replace(/\./g,"").replace(",","."):s.replace(/,/g,"");
+        }else if(s.includes(","))s=s.replace(",",".");
+        return Number(s);
+      };
+
+      const imported=[];
+      for(const line of lines.slice(1)){
+        const cols=parseLine(line),date=dateValue(cols[dateCol]||"");
+        const name=(cols[nameCol]||"").trim();
+        const raw=cols[amountCol]||"";
+        const amount=amountValue(raw);
+        if(!date||!name||!Number.isFinite(amount)||amount===0)continue;
+        const type=amount>0?"income":"expense";
+        const value=Math.abs(amount);
+        const category=type==="income"?"Otros":"Otros";
+        const duplicate=state.movements.some(m=>
+          m.date===date&&m.name.toLowerCase()===name.toLowerCase()&&
+          m.type===type&&Math.abs(m.amount-value)<0.001
+        )||imported.some(m=>
+          m.date===date&&m.name.toLowerCase()===name.toLowerCase()&&
+          m.type===type&&Math.abs(m.amount-value)<0.001
+        );
+        if(!duplicate)imported.push({id:uid(),type,amount:value,name,category,date});
+      }
+
+      if(!imported.length)throw new Error("No he encontrado movimientos nuevos válidos. Revisa el formato o los duplicados.");
+      const summary=`He encontrado ${imported.length} movimientos nuevos.\n\nIngresos: ${euro(imported.filter(m=>m.type==="income").reduce((a,m)=>a+m.amount,0))}\nGastos: ${euro(imported.filter(m=>m.type==="expense").reduce((a,m)=>a+m.amount,0))}\n\n¿Quieres importarlos? El saldo actual no cambiará.`;
+      if(!confirm(summary))return;
+      state.movements.push(...imported);
+      save();
+      toast(`${imported.length} movimientos importados`);
+    }catch(err){
+      alert("No se pudo importar el archivo: "+err.message);
+    }finally{
+      e.target.value="";
+    }
+  };
+  
   render();
 })();
