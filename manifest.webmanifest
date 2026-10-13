@@ -1,0 +1,18 @@
+{
+  "name": "Verde — tu dinero en calma",
+  "short_name": "Verde",
+  "description": "Organiza tu dinero y gana recompensas virtuales con retos de ahorro.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef3e9",
+  "theme_color": "#dcebd5",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
