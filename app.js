@@ -48,7 +48,8 @@
       const lines=text.replace(/^\uFEFF/,"").split(/\r?\n/).filter(x=>x.trim());
       if(lines.length<2)throw new Error("El archivo no contiene movimientos.");
 
-      const sep=(lines[0].match(/;/g)||[]).length>(lines[0].match(/,/g)||[]).length?";":",";
+      
+const sep = lines.some(line => line.includes(";")) ? ";" : ",";
       const parseLine=line=>{
         const out=[];let value="",quoted=false;
         for(let i=0;i<line.length;i++){
