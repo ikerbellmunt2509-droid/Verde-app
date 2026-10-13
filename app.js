@@ -90,7 +90,7 @@ const headers=parseLine(lines[headerIndex]).map(x=>x.toLowerCase().normalize("NF
       };
 
       const imported=[];
-      for(const line of lines.slice(1)){
+      for(const line of lines.slice(headerIndex+1)){
         const cols=parseLine(line),date=dateValue(cols[dateCol]||"");
         const name=(cols[nameCol]||"").trim();
         const raw=cols[amountCol]||"";
