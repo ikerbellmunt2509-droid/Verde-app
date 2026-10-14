@@ -29,7 +29,127 @@
   function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString(36)}
   function openModal(title,html,setup){document.getElementById("modalTitle").textContent=title;document.getElementById("modalBody").innerHTML=html;document.getElementById("modal").classList.remove("hidden");if(setup)setup()}
   function closeModal(){document.getElementById("modal").classList.add("hidden")}
-  function movementForm(){openModal("Añadir movimiento",`<form id="movementForm"><div class="formgrid"><div class="field"><label for="mtype">Tipo</label><select id="mtype"><option value="expense">Gasto</option><option value="income">Ingreso</option></select></div><div class="field"><label for="mamount">Cantidad (€)</label><input id="mamount" type="number" min="0.01" step="0.01" required placeholder="Ej. 18,50"></div><div class="field full"><label for="mname">Concepto</label><input id="mname" maxlength="70" required placeholder="Ej. Compra semanal"></div><div class="field"><label for="mcat">Categoría</label><select id="mcat"><option>Comida</option><option>Transporte</option><option>Ocio</option><option>Casa</option><option>Suscripciones</option><option>Salario</option><option>Estudios</option><option>Otros</option></select></div><div class="field"><label for="mdate">Fecha</label><input id="mdate" type="date" value="${today()}" required></div></div><div class="actions"><button class="btn" type="submit">Guardar movimiento</button></div></form>`,()=>{document.getElementById("movementForm").onsubmit=e=>{e.preventDefault();const type=document.getElementById("mtype").value,amount=Number(document.getElementById("mamount").value);if(!Number.isFinite(amount)||amount<=0)return;const name=document.getElementById("mname").value.trim();if(!name)return;state.movements.push({id:uid(),type,amount,name,category:document.getElementById("mcat").value,date:document.getElementById("mdate").value||today()});state.balance+=type==="income"?amount:-amount;save();closeModal();toast("Movimiento guardado 🌿")}})}
+  
+function movementForm(){
+  openModal("Añadir movimiento",`
+    <form id="movementForm" class="verde-form">
+      <p style="margin:0 0 16px;color:#9bc8b6">Registra tus ingresos o gastos en un segundo 🌿</p>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+        <button type="button" id="typeIncome" class="btn" style="background:#a7f3cf;color:#12382b;border:2px solid #a7f3cf;padding:16px 8px;border-radius:16px">
+          <span style="font-size:25px">↗️</span><br><b>Ingreso</b><br><small>Dinero que entra</small>
+        </button>
+        <button type="button" id="typeExpense" class="btn soft" style="padding:16px 8px;border-radius:16px;border:2px solid #36534b">
+          <span style="font-size:25px">↘️</span><br><b>Gasto</b><br><small>Dinero que sale</small>
+        </button>
+      </div>
+
+      <input id="mtype" type="hidden" value="expense">
+
+      <div class="field" style="margin-bottom:20px">
+        <label for="mamount">¿Cuánto dinero?</label>
+        <div style="display:flex;align-items:center;gap:10px;background:#102b27;border:1px solid #52786b;border-radius:16px;padding:10px 16px">
+          <span style="font-size:30px;color:#a7f3cf">€</span>
+          <input id="mamount" type="number" min="0.01" step="0.01" required placeholder="0,00" inputmode="decimal" style="font-size:30px;font-weight:700;background:transparent;border:0;outline:none;width:100%;color:#a7f3cf">
+        </div>
+      </div>
+
+      <div class="field" style="margin-bottom:16px">
+        <label>Categoría</label>
+        <div id="categoryButtons" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px">
+          <button type="button" data-cat="Comida" class="btn soft">🍔<br>Comida</button>
+          <button type="button" data-cat="Transporte" class="btn soft">🚗<br>Transporte</button>
+          <button type="button" data-cat="Ocio" class="btn soft">🎮<br>Ocio</button>
+          <button type="button" data-cat="Casa" class="btn soft">🏠<br>Casa</button>
+          <button type="button" data-cat="Suscripciones" class="btn soft">👑<br>Suscripciones</button>
+          <button type="button" data-cat="Salario" class="btn soft">💵<br>Salario</button>
+          <button type="button" data-cat="Estudios" class="btn soft">🎓<br>Estudios</button>
+          <button type="button" data-cat="Otros" class="btn soft">✨<br>Otros</button>
+        </div>
+        <select id="mcat" style="display:none">
+          <option>Comida</option><option>Transporte</option><option>Ocio</option>
+          <option>Casa</option><option>Suscripciones</option><option>Salario</option>
+          <option>Estudios</option><option>Otros</option>
+        </select>
+      </div>
+
+      <div class="field" style="margin-bottom:16px">
+        <label for="mname">Concepto</label>
+        <input id="mname" maxlength="70" required placeholder="Ej. Gasolina, compra semanal...">
+      </div>
+
+      <div class="field" style="margin-bottom:20px">
+        <label for="mdate">📅 Fecha</label>
+        <input id="mdate" type="date" value="${today()}" required>
+      </div>
+
+      <div style="background:#16352e;border-radius:14px;padding:12px;margin-bottom:18px;color:#b8d8cc;font-size:13px">
+        💡 Consejo: utiliza siempre la misma categoría para ver mejor en qué gastas tu dinero.
+      </div>
+
+      <button class="btn" type="submit" style="width:100%;padding:16px;background:#a7f3cf;color:#12382b;border:0;border-radius:16px;font-size:16px;font-weight:700">
+        ✓ Guardar movimiento
+      </button>
+    </form>
+  `,()=>{
+    const form=document.getElementById("movementForm");
+    const typeInput=document.getElementById("mtype");
+    const incomeBtn=document.getElementById("typeIncome");
+    const expenseBtn=document.getElementById("typeExpense");
+    const catSelect=document.getElementById("mcat");
+
+    function selectType(type){
+      typeInput.value=type;
+      incomeBtn.style.background=type==="income"?"#a7f3cf":"#18332f";
+      incomeBtn.style.color=type==="income"?"#12382b":"#e2f4ed";
+      incomeBtn.style.borderColor=type==="income"?"#a7f3cf":"#36534b";
+      expenseBtn.style.background=type==="expense"?"#a7f3cf":"#18332f";
+      expenseBtn.style.color=type==="expense"?"#12382b":"#e2f4ed";
+      expenseBtn.style.borderColor=type==="expense"?"#a7f3cf":"#36534b";
+    }
+
+    incomeBtn.onclick=()=>selectType("income");
+    expenseBtn.onclick=()=>selectType("expense");
+    selectType("expense");
+
+    document.querySelectorAll("#categoryButtons [data-cat]").forEach(btn=>{
+      btn.style.padding="12px 3px";
+      btn.style.borderRadius="13px";
+      btn.style.border="1px solid #36534b";
+      btn.style.lineHeight="1.8";
+      btn.onclick=()=>{
+        catSelect.value=btn.dataset.cat;
+        document.querySelectorAll("#categoryButtons [data-cat]").forEach(b=>{
+          b.style.background=b===btn?"#a7f3cf":"#18332f";
+          b.style.color=b===btn?"#12382b":"#e2f4ed";
+          b.style.borderColor=b===btn?"#a7f3cf":"#36534b";
+        });
+      };
+    });
+
+    document.querySelector('#categoryButtons [data-cat="Comida"]').click();
+
+    form.onsubmit=e=>{
+      e.preventDefault();
+      const type=typeInput.value;
+      const amount=Number(document.getElementById("mamount").value);
+      const name=document.getElementById("mname").value.trim();
+      if(!Number.isFinite(amount)||amount<=0||!name)return;
+
+      state.movements.push({
+        id:uid(),type,amount,name,
+        category:catSelect.value,
+        date:document.getElementById("mdate").value||today()
+      });
+
+      state.balance+=type==="income"?amount:-amount;
+      save();
+      closeModal();
+      toast("Movimiento guardado 🌿");
+    };
+  });
+}
+  
   function pendingForm(){openModal("Añadir gasto pendiente",`<form id="pendingForm"><div class="formgrid"><div class="field full"><label for="pname">¿Qué tienes que pagar?</label><input id="pname" maxlength="70" required placeholder="Ej. Teléfono"></div><div class="field"><label for="pamount">Cantidad (€)</label><input id="pamount" type="number" min="0.01" step="0.01" required placeholder="Ej. 25"></div><div class="field"><label for="pdue">Fecha de pago</label><input id="pdue" type="date"></div><div class="field full"><label for="pcat">Categoría</label><select id="pcat"><option>Recibos</option><option>Transporte</option><option>Suscripciones</option><option>Casa</option><option>Otros</option></select></div></div><div class="actions"><button class="btn" type="submit">Guardar pendiente</button></div></form>`,()=>{document.getElementById("pendingForm").onsubmit=e=>{e.preventDefault();const amount=Number(document.getElementById("pamount").value),name=document.getElementById("pname").value.trim();if(amount<=0||!name)return;state.pending.push({id:uid(),name,amount,due:document.getElementById("pdue").value,category:document.getElementById("pcat").value});save();closeModal();toast("Gasto pendiente añadido")}})}
   function planForm(){openModal("Tu plan de dinero",`<form id="planForm"><div class="formgrid"><div class="field full"><label for="balance">Saldo actual disponible en tus cuentas (€)</label><input id="balance" type="number" min="0" step=".01" value="${state.balance}" required></div><div class="field full"><label for="payday">Fecha del próximo cobro</label><input id="payday" type="date" value="${state.payday}" required></div><div class="field"><label for="savings">Ahorro que quieres reservar (€)</label><input id="savings" type="number" min="0" step=".01" value="${state.savings}" required></div><div class="field"><label for="goal">Meta de ahorro mensual (€)</label><input id="goal" type="number" min="0" step=".01" value="${state.goal}" required></div></div><p class="notice">El saldo actual debe reflejar el dinero que tienes ahora. Al registrar un ingreso o gasto, el saldo se actualizará automáticamente. Los gastos pendientes se restan al calcular el disponible.</p><div class="actions"><button class="btn" type="submit">Guardar mi plan</button></div></form>`,()=>{document.getElementById("planForm").onsubmit=e=>{e.preventDefault();const balance=Number(document.getElementById("balance").value),savings=Number(document.getElementById("savings").value),goal=Number(document.getElementById("goal").value),payday=document.getElementById("payday").value;if([balance,savings,goal].some(n=>!Number.isFinite(n)||n<0)||!payday)return;state.balance=balance;state.savings=savings;state.goal=goal;state.payday=payday;save();closeModal();toast("Plan actualizado 🌱")}})}
   document.getElementById("addMovementBtn").onclick=movementForm;document.getElementById("addPendingBtn").onclick=pendingForm;document.getElementById("editPlanBtn").onclick=planForm;document.getElementById("closeModal").onclick=closeModal;document.getElementById("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===b));renderMovements()});
